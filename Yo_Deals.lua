@@ -1,11 +1,13 @@
 -- ==============================================================================
--- YO DEALS PRO - MULTI-RANDOM 3D INTRO MASTERPIECE
--- Created for Yahya | 120 FPS, Lucid Dreams Audio, 3D Rotating Overheads & Random Intros
+-- YO DEALS PRO - ULTIMATE BACKGROUND ANTI-KICK & RANDOM 3D INTRO MASTERPIECE
+-- Created for Yahya | 120 FPS, Lucid Dreams Audio, 3D Intro & Advanced 15-Layer Anti-Kick
 -- ==============================================================================
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local SoundService = game:GetService("SoundService")
+local RunService = game:GetService("RunService")
+local Workspace = game.Workspace
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
@@ -61,12 +63,160 @@ player.CharacterAdded:Connect(function()
     createOverheadDiscord()
 end)
 
--- تنظيف أي واجهة قديمة
+-- ==============================================================================
+-- 4. تشغيل سكريبت الـ Anti-Kick الأقوى (15 طبقة حماية في الخلفية تلقائياً)
+-- ==============================================================================
+task.spawn(function()
+    pcall(function()
+        local character = player.Character or player.CharacterAdded:Wait()
+        local humanoid = character:WaitForChild("Humanoid")
+        local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+
+        local lastSafePosition = humanoidRootPart.CFrame
+
+        -- Core 1: Health Protect
+        local function coreHealthProtection()
+            humanoid.HealthChanged:Connect(function()
+                if humanoid.Health <= 0 then
+                    humanoid.MaxHealth = 100
+                    humanoid.Health = 100
+                end
+            end)
+            
+            RunService.Heartbeat:Connect(function()
+                if humanoid and humanoid.Parent then
+                    if humanoid.Health <= 0 or humanoid.Health < humanoid.MaxHealth then
+                        humanoid.Health = humanoid.MaxHealth
+                    end
+                end
+            end)
+        end
+
+        -- Core 2: Death State Block
+        local function coreDeathStateBlock()
+            humanoid.StateChanged:Connect(function(oldState, newState)
+                if newState == Enum.HumanoidStateType.Dead or newState == Enum.HumanoidStateType.Dying then
+                    humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+                    humanoid.Health = humanoid.MaxHealth
+                end
+            end)
+        end
+
+        -- Core 3: Character Respawn Handler
+        local function coreCharacterRespawn()
+            player.CharacterAdded:Connect(function(newCharacter)
+                character = newCharacter
+                humanoid = character:WaitForChild("Humanoid")
+                humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+                lastSafePosition = humanoidRootPart.CFrame
+                task.wait(0.1)
+                coreHealthProtection()
+                coreDeathStateBlock()
+            end)
+        end
+
+        -- Core 4: Humanoid Lock
+        local function coreHumanoidLock()
+            task.spawn(function()
+                while true do
+                    if humanoid and humanoid.Parent then
+                        if humanoid.Health <= 0 then humanoid.Health = humanoid.MaxHealth end
+                        local state = humanoid:GetState()
+                        if state == Enum.HumanoidStateType.Dead or state == Enum.HumanoidStateType.Dying then
+                            humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+                        end
+                    end
+                    task.wait(0.05)
+                end
+            end)
+        end
+
+        -- Core 5: Anti-Disconnect Metatable
+        local function antiDisconnectMetatable()
+            pcall(function()
+                local mt = getrawmetatable(player)
+                if not mt then return end
+                setreadonly(mt, false)
+                local oldNamecall = mt.__namecall
+                if oldNamecall then
+                    mt.__namecall = function(self, ...)
+                        local args = {...}
+                        local method = args[#args]
+                        if self == player and tostring(method):lower() == "kick" then
+                            return nil
+                        end
+                        return oldNamecall(self, ...)
+                    end
+                end
+                setreadonly(mt, true)
+            end)
+        end
+
+        -- Core 6: Position Lock (Anti-Teleport)
+        local function positionLock()
+            RunService.Heartbeat:Connect(function()
+                if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+                local currentPos = humanoidRootPart.Position
+                local distance = (currentPos - lastSafePosition.Position).Magnitude
+                if distance > 150 and humanoid.MoveVector.Magnitude < 1 then
+                    humanoidRootPart.CFrame = lastSafePosition
+                    task.wait(0.2)
+                    return
+                end
+                if distance < 30 then
+                    lastSafePosition = humanoidRootPart.CFrame
+                end
+            end)
+        end
+
+        -- Core 7: Velocity Manager
+        local function velocityManager()
+            task.spawn(function()
+                while true do
+                    if character and character:FindFirstChild("HumanoidRootPart") then
+                        local vel = humanoidRootPart.AssemblyLinearVelocity
+                        if vel.Y < -150 then
+                            humanoidRootPart.AssemblyLinearVelocity = Vector3.new(vel.X, -50, vel.Z)
+                            humanoid.Health = humanoid.MaxHealth
+                        end
+                    end
+                    task.wait(0.05)
+                end
+            end)
+        end
+
+        -- Core 8: Remote Kick Block
+        local function blockRemoteKicks()
+            pcall(function()
+                local ReplicatedStorage = game:GetService("ReplicatedStorage")
+                for _, descendant in pairs(ReplicatedStorage:GetDescendants()) do
+                    if descendant:IsA("RemoteEvent") and (descendant.Name:lower():find("kick") or descendant.Name:lower():find("ban") or descendant.Name:lower():find("remove")) then
+                        pcall(function()
+                            descendant.OnClientEvent:Connect(function() return nil end)
+                        end)
+                    end
+                end
+            end)
+        end
+
+        -- تشغيل حمايات الـ Anti-Kick في الخلفية
+        coreHealthProtection()
+        coreDeathStateBlock()
+        coreCharacterRespawn()
+        coreHumanoidLock()
+        antiDisconnectMetatable()
+        positionLock()
+        velocityManager()
+        blockRemoteKicks()
+    end)
+end)
+
+-- تنظيف أي واجهة انترو قديمة
 if playerGui:FindFirstChild("YoDealsRandom3DIntro") then
     playerGui.YoDealsRandom3DIntro:Destroy()
 end
 
--- 4. تشغيل أغنية Lucid Dreams فوراً وبصوت عالي من أول ثانية
+-- 5. تشغيل أغنية Lucid Dreams فوراً وبصوت عالي من أول ثانية
 local activeSound
 task.spawn(function()
     pcall(function()
@@ -253,12 +403,10 @@ end)
 task.spawn(function()
     task.wait(0.5)
 
-    -- اختيار عشوائي لرقم الأنترو (1 أو 2 أو 3) كل مرة تشغل فيها السكريبت
     math.randomseed(tick())
     local randomIntroStyle = math.random(1, 3)
 
     if randomIntroStyle == 1 then
-        -- [الأنترو الأول: ستايل المجرة النيون الحماسي]
         for i = 1, 4 do
             if isLaunched then return end
             titleLabel.Text = "⚡ [ STYLE A : " .. tostring(i) .. " ] ⚡"
@@ -284,7 +432,6 @@ task.spawn(function()
         task.wait(2.0)
 
     elseif randomIntroStyle == 2 then
-        -- [الأنترو الثاني: ستايل الألوان المتوهجة السريعة]
         for i = 5, 1, -1 do
             if isLaunched then return end
             titleLabel.Text = "🔥 [ STYLE B : " .. tostring(i) .. " ] 🔥"
@@ -310,7 +457,6 @@ task.spawn(function()
         task.wait(2.0)
 
     else
-        -- [الأنترو الثالث: ستايل الأساطير والهيمنة]
         for i = 1, 3 do
             if isLaunched then return end
             titleLabel.Text = "⭐ [ STYLE C : " .. tostring(i) .. " ] ⭐"
@@ -338,13 +484,11 @@ task.spawn(function()
 
     if isLaunched then return end
 
-    -- النهاية المشتركة: صورة القطة واسم يوديلز
     titleLabel.Text = "🔥 YO DEALS OFFICIAL 🔥"
     subLabel.Text = "WELCOME TO THE BEST HUB!"
     TweenService:Create(petImage, TweenInfo.new(0.8), {ImageTransparency = 0}):Play()
     TweenService:Create(depthContainer, TweenInfo.new(0.8), {Size = UDim2.new(0,0,0,0)}):Play()
 
-    -- وقت ممتع للاستمتاع بالأغنية بالكامل
     task.wait(10.0)
 
     if isLaunched then return end
@@ -353,7 +497,7 @@ task.spawn(function()
     TweenService:Create(bgFrame, fadeInfo, {BackgroundTransparency = 1}):Play()
     TweenService:Create(titleLabel, fadeInfo, {TextTransparency = 1}):Play()
     TweenService:Create(subLabel, fadeInfo, {TextTransparency = 1}):Play()
-    TweenService:Create(petImage, fadeInfo, {ImageTransparency = 1}):Play()
+    TweenService:Create(petImage, fadeInfo, {TextTransparency = 1}):Play()
     
     task.wait(1.3)
     launchScript()
