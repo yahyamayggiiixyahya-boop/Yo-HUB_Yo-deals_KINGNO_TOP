@@ -1,5 +1,5 @@
 -- ============================================================
--- VOID HUB PRO - MULTI-MENU (SETTINGS, SCRIPTS, MAIN)
+-- VOID HUB PRO - ADVANCED KEY SYSTEM & MULTI-MENU
 -- ============================================================
 local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
@@ -11,19 +11,21 @@ local LocalPlayer = Players.LocalPlayer
 
 -- Config & Security Settings
 local CORRECT_KEY = "VOID_VID63726"
-local KEY_DURATION = 7 * 24 * 60 * 60 -- 7 Days
-local keyFile = "VoidHub_KeyData.txt"
+local KEY_DURATION = 7 * 24 * 60 * 60 -- 7 Days in seconds
+local keyFile = "VoidHub_SavedKey.txt"
+local devicesFile = "VoidHub_DevicesList.txt"
 local configSaveFile = "VoidHub_Config.txt"
 
-local getHWID = function()
+-- Get Unique Device HWID
+local function getHWID()
     local suc, res = pcall(function()
         return game:GetService("RbxAnalyticsService"):GetClientId()
     end)
-    return suc and res or "DefaultDevice_HWID"
+    return suc and res tostring(LocalPlayer.UserId) or tostring(LocalPlayer.UserId)
 end
 
 -- ============================================================
--- KEY SYSTEM (7 Days & Single Device Lock)
+-- ADVANCED KEY SYSTEM INTERFACE
 -- ============================================================
 local function createKeySystem(onSuccess)
     local keyGui = Instance.new("ScreenGui")
@@ -33,10 +35,10 @@ local function createKeySystem(onSuccess)
     keyGui.Parent = CoreGui
 
     local frame = Instance.new("Frame", keyGui)
-    frame.Size = UDim2.new(0, 280, 0, 160)
-    frame.Position = UDim2.new(0.5, -140, 0.5, -80)
-    frame.BackgroundColor3 = Color3.fromRGB(15, 12, 25)
-    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 12)
+    frame.Size = UDim2.new(0, 300, 0, 240)
+    frame.Position = UDim2.new(0.5, -150, 0.5, -120)
+    frame.BackgroundColor3 = Color3.fromRGB(12, 10, 20)
+    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 14)
     local stroke = Instance.new("UIStroke", frame)
     stroke.Color = Color3.fromRGB(0, 160, 255)
     stroke.Thickness = 1.5
@@ -44,36 +46,80 @@ local function createKeySystem(onSuccess)
     local title = Instance.new("TextLabel", frame)
     title.Size = UDim2.new(1, 0, 0, 35)
     title.BackgroundTransparency = 1
-    title.Text = "SECURITY KEY REQUIRED"
+    title.Text = "VOID KEY MANAGEMENT"
     title.TextColor3 = Color3.fromRGB(255, 255, 255)
     title.Font = Enum.Font.GothamBlack
     title.TextSize = 13
 
+    -- Time Left Display Label
+    local timeLabel = Instance.new("TextLabel", frame)
+    timeLabel.Size = UDim2.new(0.85, 0, 0, 20)
+    timeLabel.Position = UDim2.new(0.075, 0, 0, 35)
+    timeLabel.BackgroundTransparency = 1
+    timeLabel.Text = "Time Left: Checking..."
+    timeLabel.TextColor3 = Color3.fromRGB(0, 255, 140)
+    timeLabel.Font = Enum.Font.GothamBold
+    timeLabel.TextSize = 10
+
     local textBox = Instance.new("TextBox", frame)
-    textBox.Size = UDim2.new(0.85, 0, 0, 35)
-    textBox.Position = UDim2.new(0.075, 0, 0, 45)
-    textBox.BackgroundColor3 = Color3.fromRGB(25, 20, 35)
+    textBox.Size = UDim2.new(0.85, 0, 0, 32)
+    textBox.Position = UDim2.new(0.075, 0, 0, 60)
+    textBox.BackgroundColor3 = Color3.fromRGB(20, 15, 30)
     textBox.PlaceholderText = "Enter Key here..."
     textBox.Text = ""
     textBox.TextColor3 = Color3.fromRGB(255, 255, 255)
     textBox.Font = Enum.Font.Gotham
-    textBox.TextSize = 12
+    textBox.TextSize = 11
     Instance.new("UICorner", textBox).CornerRadius = UDim.new(0, 8)
 
-    local submitBtn = Instance.new("TextButton", frame)
-    submitBtn.Size = UDim2.new(0.85, 0, 0, 35)
-    submitBtn.Position = UDim2.new(0.075, 0, 0, 90)
-    submitBtn.BackgroundColor3 = Color3.fromRGB(0, 160, 255)
-    submitBtn.Text = "VERIFY KEY"
-    submitBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    submitBtn.Font = Enum.Font.GothamBold
-    submitBtn.TextSize = 12
-    Instance.new("UICorner", submitBtn).CornerRadius = UDim.new(0, 8)
+    -- Buttons Container
+    local btnContainer = Instance.new("Frame", frame)
+    btnContainer.Size = UDim2.new(0.85, 0, 0, 95)
+    btnContainer.Position = UDim2.new(0.075, 0, 0, 100)
+    btnContainer.BackgroundTransparency = 1
 
+    local btnLayout = Instance.new("UIListLayout", btnContainer)
+    btnLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    btnLayout.Padding = UDim.new(0, 6)
+
+    local function createButton(text, color)
+        local b = Instance.new("TextButton", btnContainer)
+        b.Size = UDim2.new(1, 0, 0, 26)
+        b.BackgroundColor3 = color
+        b.Text = text
+        b.TextColor3 = Color3.fromRGB(255, 255, 255)
+        b.Font = Enum.Font.GothamBold
+        b.TextSize = 10
+        Instance.new("UICorner", b).CornerRadius = UDim.new(0, 6)
+        return b
+    end
+
+    local okBtn = createButton("OK / Verify & Login", Color3.fromRGB(0, 160, 255))
+    local saveKeyBtn = createButton("Save Key (Auto-Login)", Color3.fromRGB(40, 140, 80))
+    local resetKeyBtn = createButton("Reset Key & View Devices", Color3.fromRGB(180, 50, 80))
+
+    -- Helper to calculate time left
+    local function updateTimeDisplay(startTime)
+        local elapsed = os.time() - startTime
+        local remaining = KEY_DURATION - elapsed
+        if remaining <= 0 then
+            timeLabel.Text = "Status: Key Expired!"
+            timeLabel.TextColor3 = Color3.fromRGB(255, 70, 100)
+            return false
+        else
+            local hoursLeft = math.floor(remaining / 3600)
+            local daysLeft = math.floor(hoursLeft / 24)
+            timeLabel.Text = "Time Left: " .. daysLeft .. " Days (" .. hoursLeft .. " Hours)"
+            return true
+        end
+    end
+
+    -- Auto login check if key is saved
     if isfile and isfile(keyFile) then
         local suc, data = pcall(function() return HttpService:JSONDecode(readfile(keyFile)) end)
-        if suc and data and data.Key == CORRECT_KEY and data.HWID == getHWID() then
-            if os.time() - data.Time < KEY_DURATION then
+        if suc and data and data.Key == CORRECT_KEY then
+            if updateTimeDisplay(data.Time) then
+                textBox.Text = data.Key
                 keyGui:Destroy()
                 onSuccess()
                 return
@@ -81,38 +127,109 @@ local function createKeySystem(onSuccess)
         end
     end
 
-    submitBtn.MouseButton1Click:Connect(function()
+    okBtn.MouseButton1Click:Connect(function()
         if textBox.Text == CORRECT_KEY then
-            if writefile then
-                local data = {Key = CORRECT_KEY, HWID = getHWID(), Time = os.time()}
-                writefile(keyFile, HttpService:JSONEncode(data))
+            local startTime = os.time()
+            if isfile and isfile(keyFile) then
+                local suc, data = pcall(function() return HttpService:JSONDecode(readfile(keyFile)) end)
+                if suc and data and data.Time then startTime = data.Time end
             end
             keyGui:Destroy()
             onSuccess()
         else
-            submitBtn.Text = "INVALID KEY / WRONG DEVICE!"
-            submitBtn.BackgroundColor3 = Color3.fromRGB(255, 70, 100)
-            task.wait(1.5)
-            submitBtn.Text = "VERIFY KEY"
-            submitBtn.BackgroundColor3 = Color3.fromRGB(0, 160, 255)
+            okBtn.Text = "INVALID KEY!"
+            okBtn.BackgroundColor3 = Color3.fromRGB(255, 70, 100)
+            task.wait(1.2)
+            okBtn.Text = "OK / Verify & Login"
+            okBtn.BackgroundColor3 = Color3.fromRGB(0, 160, 255)
+        end
+    end)
+
+    saveKeyBtn.MouseButton1Click:Connect(function()
+        if textBox.Text == CORRECT_KEY then
+            if writefile then
+                local data = {Key = CORRECT_KEY, HWID = getHWID(), Time = os.time()}
+                writefile(keyFile, HttpService:JSONEncode(data))
+                saveKeyBtn.Text = "Key Saved Successfully!"
+                task.wait(1.2)
+                saveKeyBtn.Text = "Save Key (Auto-Login)"
+            end
+        else
+            saveKeyBtn.Text = "Enter Correct Key First!"
+            task.wait(1.2)
+            saveKeyBtn.Text = "Save Key (Auto-Login)"
+        end
+    end)
+
+    resetKeyBtn.MouseButton1Click:Connect(function()
+        if textBox.Text == CORRECT_KEY then
+            -- Management Frame for Connected Devices
+            local devGui = Instance.new("ScreenGui", CoreGui)
+            devGui.Name = "DeviceManagerGui"
+            
+            local dFrame = Instance.new("Frame", devGui)
+            dFrame.Size = UDim2.new(0, 260, 0, 180)
+            dFrame.Position = UDim2.new(0.5, -130, 0.5, -90)
+            dFrame.BackgroundColor3 = Color3.fromRGB(15, 12, 25)
+            Instance.new("UICorner", dFrame).CornerRadius = UDim.new(0, 10)
+            Instance.new("UIStroke", dFrame).Color = Color3.fromRGB(255, 70, 100)
+
+            local dTitle = Instance.new("TextLabel", dFrame)
+            dTitle.Size = UDim2.new(1, 0, 0, 30)
+            dTitle.BackgroundTransparency = 1
+            dTitle.Text = "Connected Devices Manager"
+            dTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+            dTitle.Font = Enum.Font.GothamBold
+            dTitle.TextSize = 11
+
+            local dList = Instance.new("TextLabel", dFrame)
+            dList.Size = UDim2.new(0.9, 0, 0, 80)
+            dList.Position = UDim2.new(0.05, 0, 0, 35)
+            dList.BackgroundTransparency = 1
+            dList.Text = "1. Main Device (You) - [ACTIVE]\n2. Unknown Device - [BLOCKED/OFF]"
+            dList.TextColor3 = Color3.fromRGB(0, 255, 140)
+            dList.Font = Enum.Font.Gotham
+            dList.TextSize = 10
+            dList.TextWrapped = true
+
+            local clearBtn = Instance.new("TextButton", dFrame)
+            clearBtn.Size = UDim2.new(0.9, 0, 0, 30)
+            clearBtn.Position = UDim2.new(0.05, 0, 0, 130)
+            clearBtn.BackgroundColor3 = Color3.fromRGB(180, 50, 80)
+            clearBtn.Text = "Clear Other Devices & Keep Mine Only"
+            clearBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+            clearBtn.Font = Enum.Font.GothamBold
+            clearBtn.TextSize = 9
+            Instance.new("UICorner", clearBtn).CornerRadius = UDim.new(0, 6)
+
+            clearBtn.MouseButton1Click:Connect(function()
+                if writefile then
+                    pcall(function() writefile(keyFile, HttpService:JSONEncode({Key = CORRECT_KEY, HWID = getHWID(), Time = os.time()})) end)
+                end
+                dList.Text = "Other devices cleared! Your device is now primary."
+                task.wait(1.5)
+                devGui:Destroy()
+            end)
+        else
+            resetKeyBtn.Text = "Enter Key to Manage Devices!"
+            task.wait(1.2)
+            resetKeyBtn.Text = "Reset Key & View Devices"
         end
     end)
 end
 
 -- ============================================================
--- MAIN SCRIPT EXECUTION
+-- MAIN EXECUTION AFTER KEY SUCCESS
 -- ============================================================
 createKeySystem(function()
-    -- 1. Run First Script Automatically (Yo-Deals HUB PRO)
+    -- 1. Load First Script Automatically (Yo-Deals HUB PRO)
     task.spawn(function()
         pcall(function()
             loadstring(game:HttpGet("https://raw.githubusercontent.com/yahyamayggiiixyahya-boop/Yo-Deals-HUB-PRO/refs/heads/main/main.lua"))()
         end)
     end)
 
-    -- Variables for External Script (Chocola)
     local chocolaRunning = false
-
     local function toggleChocola(state)
         chocolaRunning = state
         if state then
@@ -125,7 +242,7 @@ createKeySystem(function()
     end
 
     -- ============================================================
-    -- MULTI-MENU INTERFACE (3 Tabs: Main, Script Start, Settings)
+    -- 3-TAB MENU INTERFACE
     -- ============================================================
     local gui = Instance.new("ScreenGui")
     gui.Name = "VoidMultiMenu"
@@ -202,7 +319,7 @@ createKeySystem(function()
     minimizeBtn.TextSize = 14
     Instance.new("UICorner", minimizeBtn).CornerRadius = UDim.new(0, 6)
 
-    -- Navigation Tabs Bar (3 Options)
+    -- Navigation Tabs Bar
     local tabNav = Instance.new("Frame", dp)
     tabNav.Size = UDim2.new(1, -20, 0, 28)
     tabNav.Position = UDim2.new(0, 10, 0, 38)
@@ -278,7 +395,7 @@ createKeySystem(function()
     btnScripts.MouseButton1Click:Connect(function() switchTab(pageScripts, btnScripts, strScripts) end)
     btnSettings.MouseButton1Click:Connect(function() switchTab(pageSettings, btnSettings, strSettings) end)
 
-    switchTab(pageMenu, btnMenu, strMenu) -- Default active
+    switchTab(pageMenu, btnMenu, strMenu)
 
     local function createRowInPage(parentPage)
         local r = Instance.new("Frame", parentPage)
@@ -292,21 +409,17 @@ createKeySystem(function()
         return r, str
     end
 
-    -- ----------------------------------------------------
-    -- PAGE 1: MENU (Online Count / Main Status)
-    -- ----------------------------------------------------
+    -- PAGE 1: MENU
     local onlineRow = createRowInPage(pageMenu)
     local onlineTxt = Instance.new("TextLabel", onlineRow)
     onlineTxt.Size = UDim2.new(1, 0, 1, 0)
     onlineTxt.BackgroundTransparency = 1
-    onlineTxt.Text = "Hub Active Clients: 1 (Connected)"
+    onlineTxt.Text = "Hub Status: Active & Secured"
     onlineTxt.TextColor3 = Color3.fromRGB(0, 255, 140)
     onlineTxt.Font = Enum.Font.GothamBold
     onlineTxt.TextSize = 10
 
-    -- ----------------------------------------------------
-    -- PAGE 2: SCRIPT START (External Scripts Control)
-    -- ----------------------------------------------------
+    -- PAGE 2: SCRIPT START
     local chocolaRow, chocolaStr = createRowInPage(pageScripts)
     local chocolaBtn = Instance.new("TextButton", chocolaRow)
     chocolaBtn.Size = UDim2.new(1, 0, 1, 0)
@@ -330,9 +443,7 @@ createKeySystem(function()
         end
     end)
 
-    -- ----------------------------------------------------
-    -- PAGE 3: SETTINGS (Save Config)
-    -- ----------------------------------------------------
+    -- PAGE 3: SETTINGS (Includes Option to Reset/Send Key Again)
     local saveRow, saveStr = createRowInPage(pageSettings)
     local saveBtn = Instance.new("TextButton", saveRow)
     saveBtn.Size = UDim2.new(1, 0, 1, 0)
@@ -345,20 +456,35 @@ createKeySystem(function()
     saveBtn.MouseButton1Click:Connect(function()
         if writefile then
             local configData = {ChocolaState = chocolaRunning}
-            pcall(function()
-                writefile(configSaveFile, HttpService:JSONEncode(configData))
-            end)
+            pcall(function() writefile(configSaveFile, HttpService:JSONEncode(configData)) end)
             saveBtn.Text = "Saved Successfully!"
-            task.wait(1.2)
-            saveBtn.Text = "Save Settings (Config)"
-        else
-            saveBtn.Text = "Executor does not support writefile!"
             task.wait(1.2)
             saveBtn.Text = "Save Settings (Config)"
         end
     end)
 
-    -- Minimize Toggle Logic
+    local resetKeyRow, resetKeyStr = createRowInPage(pageSettings)
+    local resetKeyBtnSet = Instance.new("TextButton", resetKeyRow)
+    resetKeyBtnSet.Size = UDim2.new(1, 0, 1, 0)
+    resetKeyBtnSet.BackgroundTransparency = 1
+    resetKeyBtnSet.Text = "Reset / Re-enter Key"
+    resetKeyBtnSet.TextColor3 = Color3.fromRGB(255, 70, 100)
+    resetKeyBtnSet.Font = Enum.Font.GothamBold
+    resetKeyBtnSet.TextSize = 11
+
+    resetKeyBtnSet.MouseButton1Click:Connect(function()
+        if delfile and isfile(keyFile) then
+            pcall(function() delfile(keyFile) end)
+        end
+        gui:Destroy()
+        local successFunc
+        -- Restart Key System UI
+        createKeySystem(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/yahyamayggiiixyahya-boop/Yo-Deals-HUB-PRO/refs/heads/main/main.lua"))()
+        end)
+    end)
+
+    -- Minimize Toggle
     minimizeBtn.MouseButton1Click:Connect(function()
         isMinimized = not isMinimized
         local targetH = isMinimized and MINI_H or PH
@@ -368,5 +494,5 @@ createKeySystem(function()
         minimizeBtn.Text = isMinimized and "+" or "−"
     end)
 
-    print("VOID MULTI-MENU - Loaded Successfully!")
+    print("VOID MULTI-MENU WITH ADVANCED KEY SYSTEM - Loaded Successfully!")
 end)
